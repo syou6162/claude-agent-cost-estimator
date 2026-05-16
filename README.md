@@ -34,27 +34,29 @@ or the `CLAUDE_CONFIG_DIR` environment variable.
 Output is a JSON array, one object per session:
 
 ```json
-{
-  "sessionId": "abc123",
-  "projectPath": "/Users/foo/work/repo",
-  "firstTimestamp": "2026-04-15T22:00:00.000Z",
-  "lastTimestamp":  "2026-04-15T22:30:00.000Z",
-  "models": [
-    {
-      "model": "claude-opus-4-7",
-      "speed": "standard",
-      "inputTokens": 12345,
-      "outputTokens": 6789,
-      "cacheCreationInputTokens": 4567,
-      "cacheCreation5mInputTokens": 4567,
-      "cacheCreation1hInputTokens": 0,
-      "cacheReadInputTokens": 89012,
-      "costUSD": 0.12345
-    }
-  ],
-  "totalCostUSD": 0.12345,
-  "knownCostUSD": 0.12345
-}
+[
+  {
+    "sessionId": "abc123",
+    "projectPath": "/Users/foo/work/repo",
+    "firstTimestamp": "2026-04-15T22:00:00.000Z",
+    "lastTimestamp":  "2026-04-15T22:30:00.000Z",
+    "models": [
+      {
+        "model": "claude-opus-4-7",
+        "speed": "standard",
+        "inputTokens": 12345,
+        "outputTokens": 6789,
+        "cacheCreationInputTokens": 4567,
+        "cacheCreation5mInputTokens": 4567,
+        "cacheCreation1hInputTokens": 0,
+        "cacheReadInputTokens": 89012,
+        "costUSD": 0.12345
+      }
+    ],
+    "totalCostUSD": 0.12345,
+    "knownCostUSD": 0.12345
+  }
+]
 ```
 
 ## Aggregation with jq

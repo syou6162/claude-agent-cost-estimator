@@ -100,9 +100,10 @@ func TestRun_E2ENestedFixture(t *testing.T) {
 		ProjectPath  string   `json:"projectPath"`
 		TotalCostUSD *float64 `json:"totalCostUSD"`
 		Models       []struct {
-			Model       string  `json:"model"`
-			InputTokens int64   `json:"inputTokens"`
-			CostUSD     float64 `json:"costUSD"`
+			Model        string  `json:"model"`
+			InputTokens  int64   `json:"inputTokens"`
+			OutputTokens int64   `json:"outputTokens"`
+			CostUSD      float64 `json:"costUSD"`
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &reports); err != nil {
@@ -118,23 +119,42 @@ func TestRun_E2ENestedFixture(t *testing.T) {
 	if r.ProjectPath != fixtureCwd {
 		t.Errorf("projectPath: %s", r.ProjectPath)
 	}
-	// chunk-0 has opus 4-7 (100in/200out) and sonnet 4-6 (50in/100out cache 1000/500),
-	// chunk-1 has dup of opus row with larger tokens (150in/200out) — dedup keeps
-	// the larger row so opus input ends up at 150, output 200.
-	var opus, sonnet bool
+	// chunk-0 has opus 4-7 (100in/200out) and sonnet 4-6 (50in/100out cache
+	// 1000 write / 500 read), chunk-1 has the same (msg_001, req_001) opus
+	// row with larger tokens (150in/200out) — dedup keeps the larger row
+	// so opus settles at 150in/200out.
+	wantOpusCost := (150*5.0 + 200*25.0) / 1_000_000.0
+	wantSonnetCost := (50*3.0 + 100*15.0 + 1000*3.75 + 500*0.3) / 1_000_000.0
+	wantTotal := wantOpusCost + wantSonnetCost
+	if r.TotalCostUSD == nil {
+		t.Fatal("totalCostUSD nil")
+	}
+	if diff := *r.TotalCostUSD - wantTotal; diff < -1e-9 || diff > 1e-9 {
+		t.Errorf("totalCostUSD: got %v want %v", *r.TotalCostUSD, wantTotal)
+	}
+	// Models in fixtures keep their date suffix in the output (price
+	// resolution strips it internally for the cost calc).
+	const opusKey = "claude-opus-4-7-20250914"
+	const sonnetKey = "claude-sonnet-4-6-20250514"
+	gotByModel := map[string]float64{}
 	for _, m := range r.Models {
-		switch {
-		case strings.HasPrefix(m.Model, "claude-opus-4-7"):
-			opus = true
-			if m.InputTokens != 150 {
-				t.Errorf("opus input: got %d want 150", m.InputTokens)
+		gotByModel[m.Model] = m.CostUSD
+		switch m.Model {
+		case opusKey:
+			if m.InputTokens != 150 || m.OutputTokens != 200 {
+				t.Errorf("opus tokens: got %d/%d want 150/200", m.InputTokens, m.OutputTokens)
 			}
-		case strings.HasPrefix(m.Model, "claude-sonnet-4-6"):
-			sonnet = true
+		case sonnetKey:
+			if m.InputTokens != 50 || m.OutputTokens != 100 {
+				t.Errorf("sonnet tokens: got %d/%d want 50/100", m.InputTokens, m.OutputTokens)
+			}
 		}
 	}
-	if !opus || !sonnet {
-		t.Errorf("missing model breakdown: opus=%v sonnet=%v", opus, sonnet)
+	if diff := gotByModel[opusKey] - wantOpusCost; diff < -1e-9 || diff > 1e-9 {
+		t.Errorf("opus cost: got %v want %v", gotByModel[opusKey], wantOpusCost)
+	}
+	if diff := gotByModel[sonnetKey] - wantSonnetCost; diff < -1e-9 || diff > 1e-9 {
+		t.Errorf("sonnet cost: got %v want %v", gotByModel[sonnetKey], wantSonnetCost)
 	}
 }
 

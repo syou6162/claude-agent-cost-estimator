@@ -64,6 +64,21 @@ func TestEnumerateDataRoots_ExplicitAllInvalid(t *testing.T) {
 	}
 }
 
+// EnumerateDataRoots: defaults with no valid roots returns an empty
+// slice without an error (the caller's ResolveProjectDir then surfaces
+// "no project dir"). This contrasts with the explicit-config-dir path
+// which must error out via ErrNoValidConfigDir.
+func TestEnumerateDataRoots_DefaultsAllMissing(t *testing.T) {
+	tmp := t.TempDir() // empty home with no .claude or .config
+	roots, err := EnumerateDataRoots(EnumerateOptions{HomeDir: tmp})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(roots) != 0 {
+		t.Errorf("expected empty roots, got %v", roots)
+	}
+}
+
 // EnumerateDataRoots: with no XDG_CONFIG_HOME, falls back to
 // "${HomeDir}/.config/claude" and "${HomeDir}/.claude".
 func TestEnumerateDataRoots_DefaultsNoXDG(t *testing.T) {
