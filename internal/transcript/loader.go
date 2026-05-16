@@ -137,6 +137,9 @@ func fileContainsCwd(path, cwd string) bool {
 			return true
 		}
 	}
+	if err := sc.Err(); err != nil && os.Getenv("DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "WARN: scan error in %s during cwd fallback: %v\n", path, err)
+	}
 	return false
 }
 
