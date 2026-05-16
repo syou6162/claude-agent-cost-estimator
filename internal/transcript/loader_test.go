@@ -64,6 +64,24 @@ func TestEnumerateDataRoots_ExplicitAllInvalid(t *testing.T) {
 	}
 }
 
+// EnumerateDataRoots: with no XDG_CONFIG_HOME, falls back to
+// "${HomeDir}/.config/claude" and "${HomeDir}/.claude".
+func TestEnumerateDataRoots_DefaultsNoXDG(t *testing.T) {
+	tmp := t.TempDir()
+	configClaude := filepath.Join(tmp, ".config", "claude")
+	homeClaude := filepath.Join(tmp, ".claude")
+	mustMkdir(t, filepath.Join(configClaude, "projects"))
+	mustMkdir(t, filepath.Join(homeClaude, "projects"))
+	roots, err := EnumerateDataRoots(EnumerateOptions{HomeDir: tmp})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{configClaude, homeClaude}
+	if !reflect.DeepEqual(roots, want) {
+		t.Errorf("got %v want %v", roots, want)
+	}
+}
+
 // EnumerateDataRoots: env explicitly set, at least one valid path.
 func TestEnumerateDataRoots_ExplicitMixed(t *testing.T) {
 	tmp := t.TempDir()

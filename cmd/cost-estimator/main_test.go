@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,9 +12,6 @@ import (
 )
 
 const fixtureCwd = "/Users/yasuhisa.yoshida/work/times-esa-talk-slack"
-
-// almostEqual matches the float tolerance used in pricing tests.
-func almostEqual(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 // TestRun_MissingCwdExits2 locks the "usage: --cwd is required" message
 // so that flag-package default usage output never replaces it.
@@ -164,6 +160,53 @@ func TestRun_E2EUnknownModelWarn(t *testing.T) {
 	}
 }
 
+// TestRun_E2EPathSessionIDOverridesJSONField confirms that the
+// in-file sessionId field is ignored: grouping always follows the
+// file path (matches ccusage and avoids silent misgrouping).
+func TestRun_E2EPathSessionIDOverridesJSONField(t *testing.T) {
+	root := t.TempDir()
+	projectDir := filepath.Join(root, "projects", "-test-pathwin")
+	mkdir(t, projectDir)
+	// File basename is "path-wins", but the JSON entry claims "in-json-id".
+	writeFile(t, filepath.Join(projectDir, "path-wins.jsonl"),
+		`{"type":"assistant","cwd":"/test/pathwin","sessionId":"in-json-id","message":{"role":"assistant","model":"claude-opus-4-7","id":"m1","usage":{"input_tokens":1,"output_tokens":1}},"requestId":"r1","timestamp":"2026-04-15T22:00:00.000Z"}`+"\n")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cwd", "/test/pathwin", "--claude-config-dir", root}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code: %d stderr: %s", code, stderr.String())
+	}
+	var reports []struct {
+		SessionID string `json:"sessionId"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &reports); err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(reports))
+	}
+	if reports[0].SessionID != "path-wins" {
+		t.Errorf("path-derived sessionId should win, got %q", reports[0].SessionID)
+	}
+}
+
+// TestResolveExplicitConfigDirs_EmptyEntries ensures an explicit but
+// all-empty value (e.g. "--claude-config-dir=,") propagates to
+// EnumerateDataRoots as a non-nil empty slice so the caller surfaces
+// ErrNoValidConfigDir instead of silently defaulting.
+func TestResolveExplicitConfigDirs_EmptyEntries(t *testing.T) {
+	got := resolveExplicitConfigDirs(",", "")
+	if got == nil {
+		t.Fatal("expected non-nil empty slice for explicit empty input")
+	}
+	if len(got) != 0 {
+		t.Errorf("expected empty slice, got %v", got)
+	}
+	// And nil-propagation path: both empty -> nil signals "use defaults".
+	if resolveExplicitConfigDirs("", "") != nil {
+		t.Error("both-empty inputs should yield nil")
+	}
+}
+
 // TestRun_E2EFlatVsNestedSessionID exercises sessionId derivation: the
 // flat file becomes "abc-flat", the nested chunk becomes "session-abc123".
 func TestRun_E2EFlatVsNestedSessionID(t *testing.T) {
@@ -252,4 +295,3 @@ func writeFile(t *testing.T, p, contents string) {
 }
 
 var _ io.Writer = (*bytes.Buffer)(nil)
-var _ = almostEqual // silence unused warning in case future tests drop it
