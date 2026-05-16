@@ -9,10 +9,20 @@ import (
 )
 
 // EncodeCwd converts an absolute cwd to the Claude project directory name
-// by replacing every "/" with "-".
+// by replacing every "/" and "." with "-".
 func TestEncodeCwd(t *testing.T) {
 	got := EncodeCwd("/Users/foo/work/repo")
 	want := "-Users-foo-work-repo"
+	if got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+// Dots in path components must also be encoded to "-" (observed Claude
+// behavior, e.g. yasuhisa.yoshida -> yasuhisa-yoshida).
+func TestEncodeCwd_DotsReplaced(t *testing.T) {
+	got := EncodeCwd("/Users/foo.bar/work/repo")
+	want := "-Users-foo-bar-work-repo"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)
 	}

@@ -21,9 +21,12 @@ var ErrNoProjectDir = errors.New("no project dir")
 var ErrNoValidConfigDir = errors.New("no valid claude config dir")
 
 // EncodeCwd converts an absolute cwd to the corresponding Claude project
-// directory name by replacing every "/" with "-".
+// directory name. Both "/" and "." are replaced with "-", matching the
+// observed Claude Code encoding (e.g. "/Users/foo.bar/x" becomes
+// "-Users-foo-bar-x").
 func EncodeCwd(cwd string) string {
-	return strings.ReplaceAll(cwd, "/", "-")
+	r := strings.NewReplacer("/", "-", ".", "-")
+	return r.Replace(cwd)
 }
 
 // EnumerateOptions selects which Claude config directories to scan.
