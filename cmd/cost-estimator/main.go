@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,7 +29,7 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func run(args []string, stdout, stderr *os.File) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("cost-estimator", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	cwd := fs.String("cwd", "", "absolute working directory whose transcripts to aggregate (required)")
@@ -127,7 +128,7 @@ func resolveExplicitConfigDirs(flagVal, envVal string) []string {
 	return out
 }
 
-func loadEntries(files []string, projectDir string, stderr *os.File) ([]aggregate.FileEntry, error) {
+func loadEntries(files []string, projectDir string, stderr io.Writer) ([]aggregate.FileEntry, error) {
 	debug := os.Getenv("DEBUG") == "1"
 	var out []aggregate.FileEntry
 	for _, path := range files {
@@ -179,7 +180,7 @@ func loadEntries(files []string, projectDir string, stderr *os.File) ([]aggregat
 	return out, nil
 }
 
-func emitUnknownModelWarnings(entries []aggregate.FileEntry, stderr *os.File) {
+func emitUnknownModelWarnings(entries []aggregate.FileEntry, stderr io.Writer) {
 	for _, occ := range aggregate.CollectUnknownModels(entries) {
 		fmt.Fprintf(stderr, "WARN: unknown model %q (sessionId=%s)\n", occ.Model, occ.SessionID)
 	}
