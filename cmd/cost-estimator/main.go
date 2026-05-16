@@ -62,11 +62,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		return exitUsage
 	}
-	if len(roots) == 0 {
-		fmt.Fprintln(stderr, "no valid claude config dir (need <path>/projects)")
-		return exitUsage
-	}
-
+	// When the user did not specify a config dir and neither default
+	// location contains "projects", we fall through to ResolveProjectDir
+	// which surfaces the no-project-dir message. The "no valid claude
+	// config dir" wording is reserved for the explicit-but-zero-valid
+	// case handled above.
 	projectDir, err := transcript.ResolveProjectDir(roots, absCwd)
 	if err != nil {
 		fmt.Fprintf(stderr, "no project dir for cwd: %s\n", absCwd)

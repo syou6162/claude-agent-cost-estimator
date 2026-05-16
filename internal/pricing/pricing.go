@@ -131,7 +131,10 @@ type prefixRule struct {
 }
 
 var modelPrefixRules = []prefixRule{
-	{Prefix: "claude-3-5-sonnet-", Normalized: "claude-sonnet-3-5"},
+	// claude-haiku-3-5 has explicit pricing entries. Other 3.x family
+	// prefixes are intentionally absent because the official pricing
+	// table doesn't list them (3.5 sonnet etc. are deprecated and we
+	// surface them as unknown so users notice).
 	{Prefix: "claude-3-5-haiku-", Normalized: "claude-haiku-3-5"},
 }
 
