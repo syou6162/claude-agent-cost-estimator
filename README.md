@@ -123,6 +123,26 @@ Output is a JSON array, one object per session:
 | 1 | internal error (file read / scan / encode failure) |
 | 2 | usage error: `--cwd` missing, project dir not found, or explicit `CLAUDE_CONFIG_DIR` with no valid `<path>/projects` |
 
+## Known differences from ccusage
+
+The tool is modeled after ccusage but does not produce byte-identical
+totals. Document the known sources of divergence so you know what to
+expect when running both:
+
+- **1h cache writes are priced at 2x base.** ccusage flattens
+  `cache_creation_input_tokens` into a single 5m-write rate (1.25x).
+  When transcripts contain the nested `cache_creation.ephemeral_1h_input_tokens`
+  field this tool charges them at the official 1h rate, so it reports
+  higher costs whenever 1h caching was actually used.
+- **flat `<sid>.jsonl` sessions are included.** Some ccusage versions
+  (e.g. v18) skip files that sit directly under the project directory.
+  This tool aggregates them so a session that did not produce a nested
+  layout still shows up.
+- **Deep-nested transcripts keep their parent session id.** ccusage
+  collapses every `<parent>/subagents/*.jsonl` into one "subagents"
+  bucket. This tool returns `<parent>/subagents` instead so each parent
+  session keeps its own breakdown.
+
 ## Comparing against ccusage
 
 [`ccusage`](https://github.com/ryoppippi/ccusage) is the reference

@@ -48,17 +48,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	// Distinguish "--claude-config-dir was set (possibly to empty)"
-	// from "flag was never passed". The former must override the
-	// environment variable; the latter falls back to it.
-	flagSet := false
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "claude-config-dir" {
-			flagSet = true
-		}
-	})
 	opts := transcript.EnumerateOptions{
-		ExplicitConfigDirs: resolveExplicitConfigDirs(flagSet, *configDir, os.Getenv("CLAUDE_CONFIG_DIR")),
+		ExplicitConfigDirs: resolveExplicitConfigDirs(*configDir, os.Getenv("CLAUDE_CONFIG_DIR")),
 		XDGConfigHome:      os.Getenv("XDG_CONFIG_HOME"),
 		HomeDir:            os.Getenv("HOME"),
 	}
@@ -117,18 +108,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // resolveExplicitConfigDirs returns nil when neither the flag nor the
-// env var is set (signaling "use defaults"). When the flag was passed
-// it fully overrides the env var (no merge); flagSet=true with an empty
-// value is a deliberate "disable env var and use defaults" signal and
-// still returns nil to trigger the default search. When the user
-// supplied a value but every comma-separated entry is empty (e.g.
-// "--claude-config-dir=," or "CLAUDE_CONFIG_DIR=,,"), the returned
-// slice is non-nil but empty so the caller surfaces
+// env var is set to a non-empty string (signaling "use defaults").
+// When the flag is non-empty it fully overrides the env var. When the
+// user supplied a value but every comma-separated entry is empty
+// (e.g. "--claude-config-dir=," or "CLAUDE_CONFIG_DIR=,,"), the
+// returned slice is non-nil but empty so the caller surfaces
 // ErrNoValidConfigDir instead of silently falling back to defaults.
-func resolveExplicitConfigDirs(flagSet bool, flagVal, envVal string) []string {
-	src := envVal
-	if flagSet {
-		src = flagVal
+// An empty flag value is treated identically to the flag not being
+// passed (matching the plan's rule that distinguishes "explicit
+// non-empty input" from "default search").
+func resolveExplicitConfigDirs(flagVal, envVal string) []string {
+	src := flagVal
+	if src == "" {
+		src = envVal
 	}
 	if src == "" {
 		return nil

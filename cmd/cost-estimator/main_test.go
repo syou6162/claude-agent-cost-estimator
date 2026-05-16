@@ -122,24 +122,24 @@ func TestRun_E2EEnvOnlyAllInvalid(t *testing.T) {
 	}
 }
 
-// TestRun_E2EFlagEmptyDisablesEnv: passing --claude-config-dir="" must
-// override CLAUDE_CONFIG_DIR back to defaults (which here are empty,
-// so the run still has to fall through to "no project dir").
-func TestRun_E2EFlagEmptyDisablesEnv(t *testing.T) {
-	// Env is set to a valid root, but the empty flag should override it.
+// TestRun_E2EFlagEmptyDeferToEnv: passing --claude-config-dir="" is
+// treated as "flag not passed" so the CLAUDE_CONFIG_DIR env var still
+// applies. Locks the plan's interpretation (only non-empty explicit
+// values short-circuit the search).
+func TestRun_E2EFlagEmptyDeferToEnv(t *testing.T) {
 	root := setupNestedFixture(t)
 	t.Setenv("CLAUDE_CONFIG_DIR", root)
-	// Point HOME / XDG at empty dirs so defaults find no roots.
-	emptyHome := t.TempDir()
-	t.Setenv("HOME", emptyHome)
-	t.Setenv("XDG_CONFIG_HOME", emptyHome)
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--cwd", fixtureCwd, "--claude-config-dir", ""}, &stdout, &stderr)
-	if code != 2 {
+	if code != 0 {
 		t.Fatalf("exit code: %d stderr=%q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "no project dir for cwd") {
-		t.Errorf("stderr should hit default-search no-project-dir: %q", stderr.String())
+	var reports []map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &reports); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if len(reports) == 0 {
+		t.Error("expected at least one session via env")
 	}
 }
 
@@ -301,25 +301,26 @@ func TestRun_E2EPathSessionIDOverridesJSONField(t *testing.T) {
 
 // TestResolveExplicitConfigDirs covers the precedence matrix between
 // the --claude-config-dir flag and the CLAUDE_CONFIG_DIR env var.
+// Empty flag value defers to the env (plan semantics: only non-empty
+// explicit input short-circuits the search).
 func TestResolveExplicitConfigDirs(t *testing.T) {
 	cases := []struct {
 		name    string
-		flagSet bool
 		flagVal string
 		envVal  string
 		wantNil bool
 		wantOut []string
 	}{
-		{"both empty -> nil", false, "", "", true, nil},
-		{"env only", false, "", "/a,/b", false, []string{"/a", "/b"}},
-		{"flag overrides env", true, "/x", "/a,/b", false, []string{"/x"}},
-		{"flag explicitly empty disables env", true, "", "/a", true, nil},
-		{"flag with all-empty entries", true, ",", "", false, []string{}},
-		{"env with all-empty entries", false, "", ",,", false, []string{}},
+		{"both empty -> nil", "", "", true, nil},
+		{"env only", "", "/a,/b", false, []string{"/a", "/b"}},
+		{"flag overrides env", "/x", "/a,/b", false, []string{"/x"}},
+		{"empty flag defers to env", "", "/a", false, []string{"/a"}},
+		{"flag with all-empty entries", ",", "", false, []string{}},
+		{"env with all-empty entries", "", ",,", false, []string{}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := resolveExplicitConfigDirs(tc.flagSet, tc.flagVal, tc.envVal)
+			got := resolveExplicitConfigDirs(tc.flagVal, tc.envVal)
 			if tc.wantNil {
 				if got != nil {
 					t.Errorf("expected nil, got %v", got)
