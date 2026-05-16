@@ -11,6 +11,10 @@ import (
 	"testing"
 )
 
+// fixtureCwd matches the "cwd" field embedded in the testdata JSONL
+// fixtures. It is intentionally absolute (Claude transcripts only ever
+// carry absolute cwds) and matches the value baked into
+// testdata/nested/project/session-abc123/*.jsonl so the lookup hits.
 const fixtureCwd = "/Users/yasuhisa.yoshida/work/times-esa-talk-slack"
 
 // TestRun_MissingCwdExits2 locks the "usage: --cwd is required" message

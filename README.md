@@ -31,6 +31,11 @@ or `~/.claude/projects/` (Claude encodes the cwd by replacing `/` and `.`
 with `-`). Override the search paths with `--claude-config-dir <p1,p2,...>`
 or the `CLAUDE_CONFIG_DIR` environment variable.
 
+> **Note on `~` expansion:** values passed through `--claude-config-dir`
+> or `CLAUDE_CONFIG_DIR` are used verbatim; the tool does not expand
+> `~`. Use `$HOME` or absolute paths instead (e.g.
+> `CLAUDE_CONFIG_DIR="$HOME/.claude"`).
+
 Output is a JSON array, one object per session:
 
 ```json
