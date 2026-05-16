@@ -85,8 +85,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitErr
 	}
 
+	// WARN is computed against the raw entries so that the deterministic
+	// "first occurrence in filePath/lineNumber order" rule reflects the
+	// real first sighting, not whichever survivor dedup happens to pick.
+	emitUnknownModelWarnings(entries, stderr)
 	deduped := aggregate.Dedup(entries)
-	emitUnknownModelWarnings(deduped, stderr)
 	reports := aggregate.Aggregate(deduped)
 	for i := range reports {
 		reports[i].ProjectPath = absCwd
@@ -105,7 +108,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 // resolveExplicitConfigDirs returns nil when neither the flag nor the
 // env var is set (signaling "use defaults"). When the flag is set it
-// takes precedence over the env var (full replace, not merge).
+// takes precedence over the env var (full replace, not merge). When
+// the user supplied a value but every comma-separated entry is empty
+// (e.g. "--claude-config-dir=," or "CLAUDE_CONFIG_DIR=,,"), the
+// returned slice is non-nil but empty so the caller surfaces
+// ErrNoValidConfigDir instead of silently falling back to defaults.
 func resolveExplicitConfigDirs(flagVal, envVal string) []string {
 	src := flagVal
 	if src == "" {
@@ -121,9 +128,6 @@ func resolveExplicitConfigDirs(flagVal, envVal string) []string {
 		if p != "" {
 			out = append(out, p)
 		}
-	}
-	if len(out) == 0 {
-		return nil
 	}
 	return out
 }
