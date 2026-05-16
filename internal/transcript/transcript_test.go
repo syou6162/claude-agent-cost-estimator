@@ -1,7 +1,6 @@
 package transcript
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -169,8 +168,5 @@ func TestParseLine_RealWorldMix(t *testing.T) {
 		if err != nil {
 			t.Errorf("line %d: unexpected err %v", i, err)
 		}
-	}
-	if !strings.HasPrefix(asst, "{") {
-		t.Fatal("guard")
 	}
 }

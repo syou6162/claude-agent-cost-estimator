@@ -138,8 +138,10 @@ func TestRun_E2ENestedFixture(t *testing.T) {
 	}
 }
 
-// TestRun_E2EUnknownModelWarn covers the WARN format and exit code 0
-// when an unknown model appears in the project.
+// TestRun_E2EUnknownModelWarn covers the exact WARN format and exit
+// code 0 when an unknown model appears in the project. The exact line
+// is locked here so a refactor that drops the sessionId or rephrases
+// the message regresses immediately.
 func TestRun_E2EUnknownModelWarn(t *testing.T) {
 	root := t.TempDir()
 	projectDir := filepath.Join(root, "projects", "-test-unknown")
@@ -155,8 +157,38 @@ func TestRun_E2EUnknownModelWarn(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code: %d", code)
 	}
-	if got := stderr.String(); !strings.Contains(got, `WARN: unknown model "totally-unknown-model"`) {
-		t.Errorf("stderr missing exact WARN format: %q", got)
+	want := "WARN: unknown model \"totally-unknown-model\" (sessionId=abc)\n"
+	if got := stderr.String(); got != want {
+		t.Errorf("stderr mismatch:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+// TestRun_E2EDebugSkipFormat verifies the malformed-line skip WARN
+// format printed when DEBUG=1 is set. Without DEBUG the line is
+// silently dropped.
+func TestRun_E2EDebugSkipFormat(t *testing.T) {
+	root := t.TempDir()
+	projectDir := filepath.Join(root, "projects", "-test-malformed")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(projectDir, "x.jsonl")
+	// Line 1: malformed. Line 2: valid assistant entry so the file as
+	// a whole is still parseable.
+	contents := "{not json}\n" +
+		`{"type":"assistant","cwd":"/test/malformed","message":{"role":"assistant","model":"claude-opus-4-7","id":"a","usage":{"input_tokens":1,"output_tokens":1}},"requestId":"r","timestamp":"2026-04-15T22:00:00.000Z"}` + "\n"
+	if err := os.WriteFile(file, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DEBUG", "1")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cwd", "/test/malformed", "--claude-config-dir", root}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code: %d", code)
+	}
+	want := "WARN: skip " + file + ":1 reason=invalid-json\n"
+	if got := stderr.String(); got != want {
+		t.Errorf("stderr mismatch:\n got: %q\nwant: %q", got, want)
 	}
 }
 
