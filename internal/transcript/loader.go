@@ -171,9 +171,13 @@ func CollectJSONLFiles(dir string) ([]string, error) {
 // projectDir) uses the basename without extension. Nested form joins
 // the directory portion of the relative path with "/", so files like
 // "<sid>/<file>.jsonl" yield "<sid>" and "<sid>/subagents/<file>.jsonl"
-// yield "<sid>/subagents". This keeps subagent transcripts under each
-// parent session separate from one another (matching ccusage's effective
-// (projectPath, sessionId) grouping).
+// yield "<sid>/subagents".
+//
+// This intentionally deviates from ccusage's parts[len-2] rule for deep
+// nests: ccusage collapses every "<parent>/subagents/*.jsonl" into a
+// single "subagents" bucket, which we found loses the parent-session
+// breakdown. Keeping the parent in the id preserves that breakdown at
+// the cost of being a project-specific id format.
 func DeriveSessionID(filePath, projectDir string) string {
 	rel, err := filepath.Rel(projectDir, filePath)
 	if err != nil {

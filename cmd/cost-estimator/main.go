@@ -85,11 +85,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitErr
 	}
 
-	// WARN is computed against the raw entries so that the deterministic
-	// "first occurrence in filePath/lineNumber order" rule reflects the
-	// real first sighting, not whichever survivor dedup happens to pick.
-	emitUnknownModelWarnings(entries, stderr)
 	deduped := aggregate.Dedup(entries)
+	// WARN runs against the post-dedup set so the user never sees a
+	// "WARN: unknown model X" without a matching null cost in the JSON
+	// output. CollectUnknownModels re-sorts by filePath/lineNumber, so
+	// the deterministic "first occurrence" rule still holds.
+	emitUnknownModelWarnings(deduped, stderr)
 	reports := aggregate.Aggregate(deduped)
 	for i := range reports {
 		reports[i].ProjectPath = absCwd
