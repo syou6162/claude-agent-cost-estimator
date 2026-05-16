@@ -159,6 +159,15 @@ func TestDeriveSessionID_Flat(t *testing.T) {
 	}
 }
 
+// Nested subagent transcripts keep their parent session in the id so
+// different parent sessions don't merge into one "subagents" bucket.
+func TestDeriveSessionID_NestedSubagent(t *testing.T) {
+	got := DeriveSessionID("/x/projects/proj/abc123/subagents/agent-1.jsonl", "/x/projects/proj")
+	if got != "abc123/subagents" {
+		t.Errorf("got %q", got)
+	}
+}
+
 // --- helpers ---
 
 func mustMkdir(t *testing.T, p string) {

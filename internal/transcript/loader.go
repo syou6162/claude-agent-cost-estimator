@@ -164,9 +164,13 @@ func CollectJSONLFiles(dir string) ([]string, error) {
 }
 
 // DeriveSessionID returns the session id for a JSONL file path located
-// under the given project directory. Nested form (file is two or more
-// levels deep) uses the parent directory name; flat form (file directly
-// under projectDir) uses the basename without extension.
+// under the given project directory. Flat form (file directly under
+// projectDir) uses the basename without extension. Nested form joins
+// the directory portion of the relative path with "/", so files like
+// "<sid>/<file>.jsonl" yield "<sid>" and "<sid>/subagents/<file>.jsonl"
+// yield "<sid>/subagents". This keeps subagent transcripts under each
+// parent session separate from one another (matching ccusage's effective
+// (projectPath, sessionId) grouping).
 func DeriveSessionID(filePath, projectDir string) string {
 	rel, err := filepath.Rel(projectDir, filePath)
 	if err != nil {
@@ -176,5 +180,5 @@ func DeriveSessionID(filePath, projectDir string) string {
 	if len(parts) == 1 {
 		return strings.TrimSuffix(parts[0], ".jsonl")
 	}
-	return parts[len(parts)-2]
+	return strings.Join(parts[:len(parts)-1], "/")
 }
