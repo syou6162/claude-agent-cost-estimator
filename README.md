@@ -24,8 +24,9 @@ go build -o cost-estimator ./cmd/cost-estimator
 ./cost-estimator --cwd /path/to/some/repo --pretty        # human-readable JSON
 ```
 
-`--cwd` is required and must be an absolute path. The tool finds the
-matching project under `${XDG_CONFIG_HOME:-~/.config}/claude/projects/`
+`--cwd` is required. Relative paths are accepted and automatically
+resolved to absolute via `filepath.Abs` before lookup. The tool finds
+the matching project under `${XDG_CONFIG_HOME:-~/.config}/claude/projects/`
 or `~/.claude/projects/` (Claude encodes the cwd by replacing `/` and `.`
 with `-`). Override the search paths with `--claude-config-dir <p1,p2,...>`
 or the `CLAUDE_CONFIG_DIR` environment variable.
