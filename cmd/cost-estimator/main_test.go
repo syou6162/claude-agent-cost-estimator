@@ -89,6 +89,60 @@ func TestRun_FlagOverridesEnv(t *testing.T) {
 	}
 }
 
+// TestRun_E2EEnvOnly drives the resolution path with no
+// --claude-config-dir flag, relying entirely on CLAUDE_CONFIG_DIR.
+func TestRun_E2EEnvOnly(t *testing.T) {
+	root := setupNestedFixture(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cwd", fixtureCwd}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code: %d stderr: %s", code, stderr.String())
+	}
+	var reports []map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &reports); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if len(reports) == 0 {
+		t.Error("expected at least one session via env")
+	}
+}
+
+// TestRun_E2EEnvOnlyAllInvalid asserts the explicit-with-zero-valid
+// rule applies when only the env var is set.
+func TestRun_E2EEnvOnlyAllInvalid(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", "/no/such,/also/missing")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cwd", fixtureCwd}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code: %d", code)
+	}
+	if !strings.Contains(stderr.String(), "no valid claude config dir") {
+		t.Errorf("stderr: %q", stderr.String())
+	}
+}
+
+// TestRun_E2EFlagEmptyDisablesEnv: passing --claude-config-dir="" must
+// override CLAUDE_CONFIG_DIR back to defaults (which here are empty,
+// so the run still has to fall through to "no project dir").
+func TestRun_E2EFlagEmptyDisablesEnv(t *testing.T) {
+	// Env is set to a valid root, but the empty flag should override it.
+	root := setupNestedFixture(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", root)
+	// Point HOME / XDG at empty dirs so defaults find no roots.
+	emptyHome := t.TempDir()
+	t.Setenv("HOME", emptyHome)
+	t.Setenv("XDG_CONFIG_HOME", emptyHome)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cwd", fixtureCwd, "--claude-config-dir", ""}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code: %d stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "no project dir for cwd") {
+		t.Errorf("stderr should hit default-search no-project-dir: %q", stderr.String())
+	}
+}
+
 // TestRun_E2ENestedFixture exercises the full pipeline against the
 // testdata fixture and validates costs match what the price table
 // produces.
@@ -245,21 +299,45 @@ func TestRun_E2EPathSessionIDOverridesJSONField(t *testing.T) {
 	}
 }
 
-// TestResolveExplicitConfigDirs_EmptyEntries ensures an explicit but
-// all-empty value (e.g. "--claude-config-dir=,") propagates to
-// EnumerateDataRoots as a non-nil empty slice so the caller surfaces
-// ErrNoValidConfigDir instead of silently defaulting.
-func TestResolveExplicitConfigDirs_EmptyEntries(t *testing.T) {
-	got := resolveExplicitConfigDirs(",", "")
-	if got == nil {
-		t.Fatal("expected non-nil empty slice for explicit empty input")
+// TestResolveExplicitConfigDirs covers the precedence matrix between
+// the --claude-config-dir flag and the CLAUDE_CONFIG_DIR env var.
+func TestResolveExplicitConfigDirs(t *testing.T) {
+	cases := []struct {
+		name    string
+		flagSet bool
+		flagVal string
+		envVal  string
+		wantNil bool
+		wantOut []string
+	}{
+		{"both empty -> nil", false, "", "", true, nil},
+		{"env only", false, "", "/a,/b", false, []string{"/a", "/b"}},
+		{"flag overrides env", true, "/x", "/a,/b", false, []string{"/x"}},
+		{"flag explicitly empty disables env", true, "", "/a", true, nil},
+		{"flag with all-empty entries", true, ",", "", false, []string{}},
+		{"env with all-empty entries", false, "", ",,", false, []string{}},
 	}
-	if len(got) != 0 {
-		t.Errorf("expected empty slice, got %v", got)
-	}
-	// And nil-propagation path: both empty -> nil signals "use defaults".
-	if resolveExplicitConfigDirs("", "") != nil {
-		t.Error("both-empty inputs should yield nil")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := resolveExplicitConfigDirs(tc.flagSet, tc.flagVal, tc.envVal)
+			if tc.wantNil {
+				if got != nil {
+					t.Errorf("expected nil, got %v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected non-nil result")
+			}
+			if len(got) != len(tc.wantOut) {
+				t.Fatalf("len: got %d want %d (got=%v)", len(got), len(tc.wantOut), got)
+			}
+			for i := range got {
+				if got[i] != tc.wantOut[i] {
+					t.Errorf("[%d]: got %q want %q", i, got[i], tc.wantOut[i])
+				}
+			}
+		})
 	}
 }
 

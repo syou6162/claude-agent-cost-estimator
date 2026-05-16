@@ -31,6 +31,14 @@ or `~/.claude/projects/` (Claude encodes the cwd by replacing `/` and `.`
 with `-`). Override the search paths with `--claude-config-dir <p1,p2,...>`
 or the `CLAUDE_CONFIG_DIR` environment variable.
 
+If the encoded-name lookup misses, the tool falls back to scanning every
+project directory under each root, reading each JSONL line by line to
+look for a `cwd` field that matches. The fallback is O(total transcripts)
+so it can be slow on very large `~/.claude/projects/` trees — keep your
+`--cwd` value matching the literal directory you ran Claude from to stay
+on the fast path. Set `DEBUG=1` to surface scan / read errors during
+the fallback on stderr.
+
 > **Note on `~` expansion:** values passed through `--claude-config-dir`
 > or `CLAUDE_CONFIG_DIR` are used verbatim; the tool does not expand
 > `~`. Use `$HOME` or absolute paths instead (e.g.

@@ -94,6 +94,9 @@ func ResolveProjectDir(roots []string, cwd string) (string, error) {
 		projectsDir := filepath.Join(root, "projects")
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
+			if os.Getenv("DEBUG") == "1" {
+				fmt.Fprintf(os.Stderr, "WARN: readdir %s during cwd fallback: %v\n", projectsDir, err)
+			}
 			continue
 		}
 		for _, e := range entries {
@@ -112,6 +115,9 @@ func ResolveProjectDir(roots []string, cwd string) (string, error) {
 func matchesCwd(projectDir, cwd string) bool {
 	files, err := CollectJSONLFiles(projectDir)
 	if err != nil {
+		if os.Getenv("DEBUG") == "1" {
+			fmt.Fprintf(os.Stderr, "WARN: walk %s during cwd fallback: %v\n", projectDir, err)
+		}
 		return false
 	}
 	for _, f := range files {
@@ -125,6 +131,9 @@ func matchesCwd(projectDir, cwd string) bool {
 func fileContainsCwd(path, cwd string) bool {
 	f, err := os.Open(path)
 	if err != nil {
+		if os.Getenv("DEBUG") == "1" {
+			fmt.Fprintf(os.Stderr, "WARN: open %s during cwd fallback: %v\n", path, err)
+		}
 		return false
 	}
 	defer f.Close()
