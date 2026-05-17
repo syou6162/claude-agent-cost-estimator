@@ -1,0 +1,5 @@
+# local builds
+/cost-estimator
+
+# Claude Code working files (already in plan template)
+.claude_work/
