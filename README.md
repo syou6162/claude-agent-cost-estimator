@@ -11,7 +11,16 @@ standard API rates ([support article](https://support.claude.com/en/articles/150
 This tool lets you check, ahead of the cutover, what your existing
 workloads would have cost.
 
-## Build
+## Install / Build
+
+Install directly into `$GOBIN` (or `$(go env GOPATH)/bin` when `GOBIN`
+is unset):
+
+```sh
+go install github.com/syou6162/claude-agent-cost-estimator/cmd/cost-estimator@latest
+```
+
+Or build from a local checkout:
 
 ```sh
 go build -o cost-estimator ./cmd/cost-estimator
