@@ -170,6 +170,15 @@ func resolveModel(name string) string {
 	return ""
 }
 
+// IsKnownModel reports whether the model name resolves to an entry in
+// the price table, without computing any cost. Use this when callers
+// only need the predicate (e.g. unknown-model WARN collection) and
+// want to avoid the per-component multiplication that CalculateCost
+// performs.
+func IsKnownModel(model string) bool {
+	return resolveModel(model) != ""
+}
+
 // CalculateCost returns the USD cost for the given tokens against the model.
 // Returns (cost, true) when the model is known; (nil, false) otherwise.
 // speed == "fast" multiplies all components by ModelPrice.FastMultiplier

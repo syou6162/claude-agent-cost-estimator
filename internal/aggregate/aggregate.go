@@ -208,8 +208,7 @@ func CollectUnknownModels(entries []FileEntry) []UnknownModelOccurrence {
 	})
 	seen := map[string]UnknownModelOccurrence{}
 	for _, fe := range sorted {
-		_, known := pricing.CalculateCost(fe.Entry.Tokens, fe.Entry.Model, fe.Entry.Speed)
-		if known {
+		if pricing.IsKnownModel(fe.Entry.Model) {
 			continue
 		}
 		if _, ok := seen[fe.Entry.Model]; ok {

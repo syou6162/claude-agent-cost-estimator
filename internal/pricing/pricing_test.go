@@ -111,6 +111,31 @@ func TestCalculateCost_AliasMap(t *testing.T) {
 	}
 }
 
+// IsKnownModel returns true for the same inputs CalculateCost prices
+// successfully, and false for inputs that produce a nil cost. Keeps
+// the two entry points in lockstep without forcing callers to do a
+// full cost computation just to check membership.
+func TestIsKnownModel(t *testing.T) {
+	cases := []struct {
+		name string
+		want bool
+	}{
+		{"claude-opus-4-7", true},
+		{"claude-opus-4-7-20251101", true},
+		{"claude-4-sonnet-20250514", true},
+		{"claude-3-5-haiku-20250101", true},
+		{"totally-unknown", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsKnownModel(tc.name); got != tc.want {
+				t.Errorf("IsKnownModel(%q) = %v want %v", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
 // E1: unknown model
 func TestCalculateCost_UnknownModel(t *testing.T) {
 	cost, known := CalculateCost(Tokens{Input: 1_000_000}, "claude-zeta-99-99", "standard")
