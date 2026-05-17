@@ -193,12 +193,18 @@ func CollectJSONLFiles(dir string) ([]string, error) {
 // single "subagents" bucket, which we found loses the parent-session
 // breakdown. Keeping the parent in the id preserves that breakdown at
 // the cost of being a project-specific id format.
+//
+// The path is normalized via filepath.ToSlash before splitting, so the
+// returned id always uses "/" as a separator even on platforms where
+// filepath.Separator is "\". (Claude Code itself only runs on
+// macOS/Linux today, but normalizing keeps tests reproducible if the
+// tool is ever cross-compiled.)
 func DeriveSessionID(filePath, projectDir string) string {
 	rel, err := filepath.Rel(projectDir, filePath)
 	if err != nil {
 		return strings.TrimSuffix(filepath.Base(filePath), ".jsonl")
 	}
-	parts := strings.Split(rel, string(filepath.Separator))
+	parts := strings.Split(filepath.ToSlash(rel), "/")
 	if len(parts) == 1 {
 		return strings.TrimSuffix(parts[0], ".jsonl")
 	}
