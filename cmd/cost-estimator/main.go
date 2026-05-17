@@ -67,7 +67,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// which surfaces the no-project-dir message. The "no valid claude
 	// config dir" wording is reserved for the explicit-but-zero-valid
 	// case handled above.
-	projectDir, err := transcript.ResolveProjectDir(roots, absCwd)
+	projectDir, scanErrs, err := transcript.ResolveProjectDir(roots, absCwd)
+	for _, e := range scanErrs {
+		fmt.Fprintf(stderr, "WARN: %v\n", e)
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "no project dir for cwd: %s\n", absCwd)
 		return exitUsage

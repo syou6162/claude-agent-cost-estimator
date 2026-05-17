@@ -82,21 +82,26 @@ func filterRootsWithProjects(paths []string) []string {
 // that corresponds to cwd. First the encoded name is tried; if no
 // matching directory exists, every project directory's JSONL contents are
 // scanned for a top-level "cwd" field that equals the requested cwd.
-func ResolveProjectDir(roots []string, cwd string) (string, error) {
+//
+// The returned []error contains non-fatal I/O failures (permission
+// denied, broken symlinks, etc.) that occurred during the fallback
+// scan. Callers should surface these alongside the primary result so
+// real infrastructure issues don't get silently flattened into
+// "no project dir".
+func ResolveProjectDir(roots []string, cwd string) (string, []error, error) {
 	encoded := EncodeCwd(cwd)
 	for _, root := range roots {
 		candidate := filepath.Join(root, "projects", encoded)
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate, nil
+			return candidate, nil, nil
 		}
 	}
+	var nonFatal []error
 	for _, root := range roots {
 		projectsDir := filepath.Join(root, "projects")
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
-			if os.Getenv("DEBUG") == "1" {
-				fmt.Fprintf(os.Stderr, "WARN: readdir %s during cwd fallback: %v\n", projectsDir, err)
-			}
+			nonFatal = append(nonFatal, fmt.Errorf("readdir %s: %w", projectsDir, err))
 			continue
 		}
 		for _, e := range entries {
@@ -104,37 +109,38 @@ func ResolveProjectDir(roots []string, cwd string) (string, error) {
 				continue
 			}
 			projectDir := filepath.Join(projectsDir, e.Name())
-			if matchesCwd(projectDir, cwd) {
-				return projectDir, nil
+			matched, errs := matchesCwd(projectDir, cwd)
+			nonFatal = append(nonFatal, errs...)
+			if matched {
+				return projectDir, nonFatal, nil
 			}
 		}
 	}
-	return "", fmt.Errorf("%w for cwd: %s", ErrNoProjectDir, cwd)
+	return "", nonFatal, fmt.Errorf("%w for cwd: %s", ErrNoProjectDir, cwd)
 }
 
-func matchesCwd(projectDir, cwd string) bool {
+func matchesCwd(projectDir, cwd string) (bool, []error) {
 	files, err := CollectJSONLFiles(projectDir)
 	if err != nil {
-		if os.Getenv("DEBUG") == "1" {
-			fmt.Fprintf(os.Stderr, "WARN: walk %s during cwd fallback: %v\n", projectDir, err)
-		}
-		return false
+		return false, []error{fmt.Errorf("walk %s: %w", projectDir, err)}
 	}
+	var errs []error
 	for _, f := range files {
-		if fileContainsCwd(f, cwd) {
-			return true
+		hit, ferr := fileContainsCwd(f, cwd)
+		if ferr != nil {
+			errs = append(errs, ferr)
+		}
+		if hit {
+			return true, errs
 		}
 	}
-	return false
+	return false, errs
 }
 
-func fileContainsCwd(path, cwd string) bool {
+func fileContainsCwd(path, cwd string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		if os.Getenv("DEBUG") == "1" {
-			fmt.Fprintf(os.Stderr, "WARN: open %s during cwd fallback: %v\n", path, err)
-		}
-		return false
+		return false, fmt.Errorf("open %s: %w", path, err)
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
@@ -143,13 +149,13 @@ func fileContainsCwd(path, cwd string) bool {
 		line := sc.Bytes()
 		got, ok := ExtractCwdField(line)
 		if ok && got == cwd {
-			return true
+			return true, nil
 		}
 	}
-	if err := sc.Err(); err != nil && os.Getenv("DEBUG") == "1" {
-		fmt.Fprintf(os.Stderr, "WARN: scan error in %s during cwd fallback: %v\n", path, err)
+	if err := sc.Err(); err != nil {
+		return false, fmt.Errorf("scan %s: %w", path, err)
 	}
-	return false
+	return false, nil
 }
 
 // CollectJSONLFiles walks the directory and returns every *.jsonl file

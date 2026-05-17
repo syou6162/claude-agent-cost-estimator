@@ -101,8 +101,6 @@ func Aggregate(entries []FileEntry) []SessionReport {
 	type sessionAcc struct {
 		first, last string
 		models      map[modelKey]*ModelBreakdown
-		// preserve original ordering of model keys for stable iteration
-		// before final sort.
 	}
 	sessions := map[string]*sessionAcc{}
 	for _, fe := range entries {

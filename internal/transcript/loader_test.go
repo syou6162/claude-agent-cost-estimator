@@ -120,9 +120,12 @@ func TestResolveProjectDir_EncodedHit(t *testing.T) {
 	root := filepath.Join(tmp, "claude")
 	encoded := "-Users-x-y"
 	mustMkdir(t, filepath.Join(root, "projects", encoded))
-	dir, err := ResolveProjectDir([]string{root}, "/Users/x/y")
+	dir, scanErrs, err := ResolveProjectDir([]string{root}, "/Users/x/y")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(scanErrs) != 0 {
+		t.Errorf("expected no scan errors, got %v", scanErrs)
 	}
 	if dir != filepath.Join(root, "projects", encoded) {
 		t.Errorf("got %q", dir)
@@ -139,7 +142,7 @@ func TestResolveProjectDir_FallbackByCwd(t *testing.T) {
 	mustWriteFile(t, filepath.Join(other, "abc.jsonl"),
 		`{"type":"x"}`+"\n"+
 			`{"type":"assistant","cwd":"/real/cwd","message":{"role":"assistant","model":"m","id":"a","usage":{"input_tokens":1}},"requestId":"r"}`+"\n")
-	dir, err := ResolveProjectDir([]string{root}, "/real/cwd")
+	dir, _, err := ResolveProjectDir([]string{root}, "/real/cwd")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -153,9 +156,31 @@ func TestResolveProjectDir_NotFound(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "claude")
 	mustMkdir(t, filepath.Join(root, "projects"))
-	_, err := ResolveProjectDir([]string{root}, "/no/match")
+	_, _, err := ResolveProjectDir([]string{root}, "/no/match")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+// ResolveProjectDir: an unreadable project directory should not abort
+// the scan; the error is surfaced via scanErrs while resolution still
+// returns ErrNoProjectDir.
+func TestResolveProjectDir_ReadDirErrorSurfaced(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "claude")
+	mustMkdir(t, filepath.Join(root, "projects", "bad"))
+	// chmod 0 on the project dir blocks WalkDir.
+	target := filepath.Join(root, "projects", "bad")
+	if err := os.Chmod(target, 0o000); err != nil {
+		t.Skipf("chmod not effective on this fs: %v", err)
+	}
+	defer os.Chmod(target, 0o755) // restore so TempDir cleanup works
+	_, scanErrs, err := ResolveProjectDir([]string{root}, "/no/such")
+	if err == nil {
+		t.Fatal("expected ErrNoProjectDir")
+	}
+	if len(scanErrs) == 0 {
+		t.Error("expected scanErrs to surface permission failure")
 	}
 }
 

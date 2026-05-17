@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -428,5 +427,3 @@ func writeFile(t *testing.T, p, contents string) {
 		t.Fatal(err)
 	}
 }
-
-var _ io.Writer = (*bytes.Buffer)(nil)
