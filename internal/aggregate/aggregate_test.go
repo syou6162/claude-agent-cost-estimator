@@ -90,6 +90,23 @@ func TestAggregate_BasicSession(t *testing.T) {
 	}
 }
 
+// Every model unknown → both totalCostUSD and knownCostUSD are nil
+// so the JSON output distinguishes "no known cost data" from "$0".
+func TestAggregate_AllUnknownNullsBoth(t *testing.T) {
+	entries := []FileEntry{
+		mkEntry("s1", "totally-unknown-1", "m1", "r1", 1_000_000, 0),
+		mkEntry("s1", "totally-unknown-2", "m2", "r2", 1_000_000, 0),
+	}
+	out := Aggregate(entries)
+	s := out[0]
+	if s.TotalCostUSD != nil {
+		t.Errorf("totalCostUSD should be nil, got %v", *s.TotalCostUSD)
+	}
+	if s.KnownCostUSD != nil {
+		t.Errorf("knownCostUSD should be nil when no model priced, got %v", *s.KnownCostUSD)
+	}
+}
+
 // Unknown model → costUSD nil, totalCostUSD nil, knownCostUSD reflects known portion.
 func TestAggregate_UnknownModelNullsTotal(t *testing.T) {
 	entries := []FileEntry{

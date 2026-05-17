@@ -152,18 +152,25 @@ func Aggregate(entries []FileEntry) []SessionReport {
 			}
 			return mbs[i].Speed < mbs[j].Speed
 		})
-		var total *float64
+		var total, knownPtr *float64
 		var known float64
 		allKnown := true
+		anyKnown := false
 		for _, mb := range mbs {
 			if mb.CostUSD == nil {
 				allKnown = false
 				continue
 			}
+			anyKnown = true
 			known += *mb.CostUSD
 		}
-		k := known
-		knownPtr := &k
+		// Leave knownCostUSD nil when no model in the session priced
+		// successfully — distinguishes "no known cost data" from
+		// "known cost is genuinely 0".
+		if anyKnown {
+			k := known
+			knownPtr = &k
+		}
 		if allKnown {
 			t := known
 			total = &t
